@@ -1,12 +1,13 @@
 """
 Ission Agent — Orquestrador de IA.
-Gerencia o pipeline de análise utilizando Semantic Kernel + Azure OpenAI.
+Gerencia o pipeline de análise utilizando Semantic Kernel + Azure OpenAI (GPT-4o).
 """
 
-import asyncio
+import os
 
-import semantic_kernel  # noqa: F401 — será utilizado na inicialização do kernel
 from dotenv import load_dotenv
+from semantic_kernel import Kernel
+from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
 
 
 class IssionOrchestrator:
@@ -16,9 +17,21 @@ class IssionOrchestrator:
         # Carrega variáveis de ambiente (.env) para credenciais do Azure OpenAI
         load_dotenv()
 
-        # TODO: Inicializar o Semantic Kernel com o serviço Azure OpenAI
-        # self.kernel = semantic_kernel.Kernel()
-        # self.kernel.add_service(AzureChatCompletion(...))
+        # Inicializa o Kernel do Semantic Kernel
+        self.kernel = Kernel()
+
+        # Lê credenciais do Azure OpenAI a partir do .env
+        api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
+        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+        deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "")
+
+        # Registra o serviço de Chat Completion do Azure OpenAI no kernel
+        azure_chat_service = AzureChatCompletion(
+            deployment_name=deployment_name,
+            endpoint=endpoint,
+            api_key=api_key,
+        )
+        self.kernel.add_service(azure_chat_service)
 
     async def process_issue(self, issue_url: str) -> dict:
         """
@@ -30,13 +43,43 @@ class IssionOrchestrator:
         Returns:
             Dicionário compatível com a interface AgentResponse do front-end.
         """
-        # Mock temporário — simula latência de processamento
-        await asyncio.sleep(3)
+        prompt = (
+            "Você é o core do agente Ission. "
+            "O usuário solicitou a análise da seguinte URL de Issue do GitHub: "
+            f"{issue_url}. "
+            "Como ainda estamos configurando as ferramentas de leitura do GitHub, "
+            "simule o que seria o seu plano técnico de alto nível para resolver "
+            "essa issue se baseando no título presumido dela. "
+            "Responda de forma objetiva e técnica."
+        )
 
-        return {
-            "status": "sucesso",
-            "thoughts": ["Lendo issue...", "Planejando solução..."],
-            "finalComment": (
-                "Mock inicializado com sucesso para a URL fornecida."
-            ),
-        }
+        try:
+            result = await self.kernel.invoke_prompt(prompt=prompt)
+            final_comment = str(result)
+
+            thoughts = [
+                "Recebendo URL da issue...",
+                "Enviando prompt ao Azure OpenAI (GPT-4o)...",
+                "Processando resposta do modelo...",
+                "Montando plano técnico de alto nível...",
+            ]
+
+            return {
+                "status": "sucesso",
+                "thoughts": thoughts,
+                "finalComment": final_comment,
+            }
+
+        except Exception as e:
+            return {
+                "status": "erro",
+                "thoughts": [
+                    "Tentativa de conexão com Azure OpenAI...",
+                    "Falha na comunicação com a API.",
+                ],
+                "finalComment": (
+                    f"Não foi possível obter resposta da IA. "
+                    f"Verifique suas credenciais no arquivo .env. "
+                    f"Detalhe do erro: {str(e)}"
+                ),
+            }

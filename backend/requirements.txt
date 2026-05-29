@@ -1,5 +1,5 @@
 fastapi>=0.110.0
 uvicorn>=0.29.0
 pydantic>=2.0.0
-semantic-kernel>=1.0.0
+semantic-kernel[azure]>=1.0.0
 python-dotenv>=1.0.0
