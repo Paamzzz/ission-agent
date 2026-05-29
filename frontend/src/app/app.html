@@ -1,25 +1,43 @@
-<div style="max-width: 600px; margin: 2rem auto; padding: 1rem; font-family: sans-serif;">
-     <h1>Ission Agent</h1>
+<div style="padding: 20px; font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+  
+  <h2>Ission Agent - Painel de Testes</h2>
+  
+  <!-- Formulário de Envio -->
+  <div style="margin-bottom: 20px;">
+    <input 
+      type="text" 
+      [(ngModel)]="issueUrl" 
+      placeholder="Cole a URL da Issue do GitHub aqui" 
+      [disabled]="isLoading"
+      style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"
+    />
+    
+    <button 
+      (click)="onAnalyze()" 
+      [disabled]="isLoading || !issueUrl"
+      style="padding: 10px 20px; background-color: #0078d4; color: white; border: none; border-radius: 4px; cursor: pointer;"
+    >
+      {{ isLoading ? 'Pensando...' : 'Analisar Issue' }}
+    </button>
+  </div>
 
-     <div>
-          <input type="text" [(ngModel)]="issueUrl" placeholder="Cole a URL da issue aqui"
-               style="width: 100%; padding: 0.5rem; font-size: 1rem; box-sizing: border-box;" />
-     </div>
+  <!-- Exibição dos Resultados (Só aparece se apiResponse não for nulo) -->
+  <div *ngIf="apiResponse" style="background-color: #f3f2f1; padding: 15px; border-radius: 4px; border-left: 4px solid #0078d4;">
+    
+    <h3>Status: {{ apiResponse.status }}</h3>
+    
+    <h4>Fluxo de Raciocínio do Agente:</h4>
+    <ul>
+      <!-- Laço corrigido para ler 'thoughts' exatamente como veio do Python -->
+      <li *ngFor="let thought of apiResponse.thoughts" style="margin-bottom: 5px; color: #323130;">
+         canais_log ➔ {{ thought }}
+      </li>
+    </ul>
 
-     <div style="margin-top: 1rem;">
-          <button (click)="onAnalyze()" [disabled]="isLoading"
-               style="padding: 0.5rem 1.5rem; font-size: 1rem; cursor: pointer;">
-               {{ isLoading ? 'Pensando...' : 'Analisar' }}
-          </button>
-     </div>
+    <hr style="border: 0; border-top: 1px solid #dee2e6; margin: 15px 0;" />
 
-     <section *ngIf="apiResponse" style="margin-top: 2rem;">
-          <h2>Pensamentos do Agente</h2>
-          <ul>
-               <li *ngFor="let thought of apiResponse.thoughts">{{ thought }}</li>
-          </ul>
+    <h4>Plano Técnico Gerado:</h4>
+    <p style="font-weight: 500; color: #107c41;">{{ apiResponse.finalComment }}</p>
 
-          <h2>Comentário Final</h2>
-          <p>{{ apiResponse.finalComment }}</p>
-     </section>
+  </div>
 </div>

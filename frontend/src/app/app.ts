@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { IssionService, AgentResponse } from './services/ission.service';
@@ -14,7 +14,10 @@ export class App {
      isLoading: boolean = false;
      apiResponse: AgentResponse | null = null;
 
-     constructor(private readonly issionService: IssionService) { }
+     constructor(
+          private readonly issionService: IssionService,
+          private readonly cdr: ChangeDetectorRef
+     ) { }
 
      onAnalyze(): void {
           this.isLoading = true;
@@ -22,9 +25,11 @@ export class App {
                next: (response) => {
                     this.apiResponse = response;
                     this.isLoading = false;
+                    this.cdr.detectChanges();
                },
                error: () => {
                     this.isLoading = false;
+                    this.cdr.detectChanges();
                }
           });
      }
