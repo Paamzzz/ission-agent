@@ -9,6 +9,13 @@ export interface AgentResponse {
      finalComment: string;
 }
 
+/** Estrutura de resposta da publicação de comentário. */
+export interface PublishResponse {
+     status: string;
+     message: string;
+     comment_url: string;
+}
+
 /**
  * Serviço responsável pela comunicação com o backend do Ission.
  * Centraliza todas as chamadas HTTP relacionadas à análise de issues.
@@ -28,6 +35,19 @@ export class IssionService {
      analyzeIssue(issueUrl: string): Observable<AgentResponse> {
           return this.http.post<AgentResponse>(`${this.apiUrl}/analyze`, {
                url: issueUrl,
+          });
+     }
+
+     /**
+      * Publica o plano técnico como comentário na issue do GitHub.
+      * @param issueUrl - URL da issue onde o comentário será publicado.
+      * @param commentBody - Conteúdo Markdown do comentário.
+      * @returns Observable com a resposta de sucesso/erro.
+      */
+     publishComment(issueUrl: string, commentBody: string): Observable<PublishResponse> {
+          return this.http.post<PublishResponse>(`${this.apiUrl}/publish-comment`, {
+               issue_url: issueUrl,
+               comment_body: commentBody,
           });
      }
 }

@@ -1,43 +1,81 @@
-<div style="padding: 20px; font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-  
-  <h2>Ission Agent - Painel de Testes</h2>
-  
-  <!-- Formulário de Envio -->
-  <div style="margin-bottom: 20px;">
-    <input 
-      type="text" 
-      [(ngModel)]="issueUrl" 
-      placeholder="Cole a URL da Issue do GitHub aqui" 
-      [disabled]="isLoading"
-      style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"
-    />
-    
-    <button 
-      (click)="onAnalyze()" 
-      [disabled]="isLoading || !issueUrl"
-      style="padding: 10px 20px; background-color: #0078d4; color: white; border: none; border-radius: 4px; cursor: pointer;"
-    >
-      {{ isLoading ? 'Pensando...' : 'Analisar Issue' }}
-    </button>
-  </div>
+<div class="ission-container">
 
-  <!-- Exibição dos Resultados (Só aparece se apiResponse não for nulo) -->
-  <div *ngIf="apiResponse" style="background-color: #f3f2f1; padding: 15px; border-radius: 4px; border-left: 4px solid #0078d4;">
-    
-    <h3>Status: {{ apiResponse.status }}</h3>
-    
-    <h4>Fluxo de Raciocínio do Agente:</h4>
-    <ul>
-      <!-- Laço corrigido para ler 'thoughts' exatamente como veio do Python -->
-      <li *ngFor="let thought of apiResponse.thoughts" style="margin-bottom: 5px; color: #323130;">
-         canais_log ➔ {{ thought }}
-      </li>
-    </ul>
+     <h2 class="ission-title">Ission Agent</h2>
+     <p class="ission-subtitle">Cole a URL de uma issue pública do GitHub para gerar um plano técnico.</p>
 
-    <hr style="border: 0; border-top: 1px solid #dee2e6; margin: 15px 0;" />
+     <!-- Formulário de Envio -->
+     <div class="input-group">
+          <input type="text" [(ngModel)]="issueUrl" placeholder="https://github.com/owner/repo/issues/123"
+               [disabled]="isLoading" class="input-url" />
 
-    <h4>Plano Técnico Gerado:</h4>
-    <p style="font-weight: 500; color: #107c41;">{{ apiResponse.finalComment }}</p>
+          <button (click)="onAnalyze()" [disabled]="isLoading || !issueUrl" class="btn-analyze"
+               [class.btn-loading]="isLoading">
+               {{ isLoading ? 'Processando Issue...' : 'Analisar Issue' }}
+          </button>
+     </div>
 
-  </div>
+     <!-- Área de Loading (aparece enquanto processa) -->
+     <div *ngIf="isLoading" class="loading-card">
+          <div class="pulse-indicator"></div>
+          <p class="loading-text">O agente está analisando a issue...</p>
+     </div>
+
+     <!-- Exibição dos Resultados (animação em cascata) -->
+     <div *ngIf="apiResponse" class="result-card">
+
+          <div class="status-badge" [class.status-success]="apiResponse.status === 'sucesso'"
+               [class.status-error]="apiResponse.status === 'erro'">
+               {{ apiResponse.status === 'sucesso' ? '✓ Sucesso' : '✗ Erro' }}
+          </div>
+
+          <h4 class="section-title">Fluxo de Raciocínio do Agente:</h4>
+          <ul class="thoughts-list">
+               <li *ngFor="let thought of displayedThoughts; let last = last" class="thought-item thought-animate">
+                    <span class="thought-icon">➔</span> {{ thought }}
+                    <!-- Spinner ao lado do último thought enquanto anima -->
+                    <span *ngIf="last && isAnimating" class="thought-spinner"></span>
+               </li>
+          </ul>
+
+          <!-- Indicador de processamento durante animação -->
+          <div *ngIf="isAnimating" class="thinking-indicator">
+               <div class="thinking-dots">
+                    <span></span><span></span><span></span>
+               </div>
+               <span class="thinking-text">Processando...</span>
+          </div>
+
+          <!-- Plano Técnico (aparece após último thought) -->
+          <div *ngIf="showFinalComment" class="final-comment-section">
+               <hr class="divider" />
+
+               <h4 class="section-title">Plano Técnico Gerado:</h4>
+               <div class="markdown-body">
+                    <markdown [data]="apiResponse.finalComment" [disableSanitizer]="true"></markdown>
+               </div>
+
+               <!-- Botão Publicar na Issue -->
+               <div *ngIf="apiResponse.status === 'sucesso'" class="publish-section">
+                    <button (click)="onPublishComment()" [disabled]="isPublishing || publishSuccess" class="btn-publish"
+                         [class.btn-publishing]="isPublishing">
+                         {{ isPublishing ? '⏳ Publicando...' : (publishSuccess ? '✓ Publicado!' : '📤 Publicar Plano na
+                         Issue') }}
+                    </button>
+
+                    <!-- Mensagem de sucesso -->
+                    <div *ngIf="publishSuccess" class="publish-success">
+                         ✓ Comentário publicado com sucesso!
+                         <a *ngIf="commentUrl" [href]="commentUrl" target="_blank" rel="noopener">
+                              Ver no GitHub →
+                         </a>
+                    </div>
+
+                    <!-- Mensagem de erro -->
+                    <div *ngIf="publishError" class="publish-error">
+                         ✗ {{ publishError }}
+                    </div>
+               </div>
+          </div>
+
+     </div>
 </div>
