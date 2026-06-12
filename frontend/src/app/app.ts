@@ -1,16 +1,19 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { RouterOutlet } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
 import { IssionService, AgentResponse } from './services/ission.service';
+import { AuthService } from './auth/auth.service';
+import { AuthStatusComponent } from './auth/auth-status.component';
 
 @Component({
      selector: 'app-root',
-     imports: [FormsModule, CommonModule, MarkdownComponent],
+     imports: [FormsModule, CommonModule, MarkdownComponent, RouterOutlet, AuthStatusComponent],
      templateUrl: './app.html',
      styleUrl: './app.scss'
 })
-export class App {
+export class App implements OnInit {
      issueUrl: string = '';
      isLoading: boolean = false;
      apiResponse: AgentResponse | null = null;
@@ -28,8 +31,13 @@ export class App {
 
      constructor(
           private readonly issionService: IssionService,
-          private readonly cdr: ChangeDetectorRef
+          private readonly cdr: ChangeDetectorRef,
+          private readonly authService: AuthService
      ) { }
+
+     ngOnInit(): void {
+          this.authService.checkSession().subscribe();
+     }
 
      onAnalyze(): void {
           // Reset do estado

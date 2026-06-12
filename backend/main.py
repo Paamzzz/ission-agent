@@ -9,11 +9,12 @@ import re
 import urllib.request
 import urllib.error
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
+from auth_router import router as auth_router, get_current_token
 from orchestrator import IssionOrchestrator
 
 # --- Carregar variáveis de ambiente ---
@@ -22,6 +23,9 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 # --- Inicialização da aplicação ---
 app = FastAPI(title="Ission Agent API", version="0.1.0")
+
+# --- Registrar rotas de autenticação ---
+app.include_router(auth_router)
 
 # --- Configuração de CORS (permite o front-end Angular em dev) ---
 app.add_middleware(
@@ -47,33 +51,23 @@ class CommentRequest(BaseModel):
 
 # --- Rotas ---
 @app.post("/api/analyze")
-async def analyze_issue(payload: IssueRequest):
-    """Recebe a URL de uma issue e delega ao orquestrador de IA."""
-    try:
-        orchestrator = IssionOrchestrator()
-        result = await orchestrator.process_issue(payload.url)
-        return result
-    except Exception as e:
-        print(e)
-        return {
-            "status": "sucesso",
-            "thoughts": [
-                "Autenticando via SDK do Ission...",
-                "Analisando contexto da URL do GitHub...",
-                "Mapeando dependências do projeto...",
-                "Plano gerado com sucesso!"
-            ],
-            "finalComment": "### Plano Técnico de Resolução\n\n1. **Análise Inicial:** A issue reportada requer atualização no banco de dados e ajuste no front-end.\n2. **Passos Práticos:** \n   - Criar a migration para a nova coluna.\n   - Atualizar a interface do Angular para receber o novo dado.\n3. **Testes:** Garantir que o CORS esteja liberado na rota atualizada.\n\n*Status simulado devido à cota de API.*"
-        }
+async def analyze_issue(payload: IssueRequest, token: str | None = Depends(get_current_token)):
+    """Recebe a URL de uma issue e delega ao orquestrador."""
+    orchestrator = IssionOrchestrator()
+    result = await orchestrator.process_issue(payload.url, token=token)
+    return result
 
 
 @app.post("/api/publish-comment")
-async def publish_comment(payload: CommentRequest):
+async def publish_comment(payload: CommentRequest, token: str | None = Depends(get_current_token)):
     """
     Publica um comentário em uma issue do GitHub.
     Extrai owner, repo e issue_number da URL e faz POST na API do GitHub.
     """
-    if not GITHUB_TOKEN:
+    # Determinar o token efetivo: sessão do usuário ou fallback para GITHUB_TOKEN
+    effective_token = token if token else os.getenv("GITHUB_TOKEN")
+
+    if not effective_token:
         raise HTTPException(
             status_code=500,
             detail="GITHUB_TOKEN não configurado no servidor."
@@ -98,7 +92,7 @@ async def publish_comment(payload: CommentRequest):
     body = json.dumps({"body": payload.comment_body}).encode("utf-8")
 
     headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
+        "Authorization": f"token {effective_token}",
         "Accept": "application/vnd.github.v3+json",
         "Content-Type": "application/json",
         "User-Agent": "Ission-Agent/0.1",
