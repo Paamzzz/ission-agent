@@ -6,224 +6,223 @@
 <!-- ── APP SHELL ── -->
 <div class="app-shell">
 
-  <!-- ── TOP NAV ── -->
-  <header class="app-nav">
-<div class="app-nav__brand" (click)="goToLanding()">
-     <span class="app-nav__dot"></span>
-     <span class="app-nav__name">Ission Agent</span>
-     <span class="app-nav__version">v2.0</span>
-</div>
-
-    <div class="app-nav__center hide-mobile">
-      <span class="app-nav__pipe-label">GitHub Issue</span>
-      <span class="app-nav__pipe-arrow">→</span>
-      <span class="app-nav__pipe-label">AI Analysis</span>
-      <span class="app-nav__pipe-arrow">→</span>
-      <span class="app-nav__pipe-label">Action Plan</span>
-      <span class="app-nav__pipe-arrow">→</span>
-      <span class="app-nav__pipe-label app-nav__pipe-label--accent">Publish</span>
-    </div>
-
-    <div class="app-nav__auth">
-      <app-auth-status></app-auth-status>
-    </div>
-  </header>
-
-  <!-- ── MAIN CONTENT ── -->
-  <main class="app-main">
-    <div class="analyzer-column">
-
-      <!-- ── PAGE HEADER ── -->
-      <div class="page-header">
-        <div class="page-header__eyebrow">
-          <span class="eyebrow-dot"></span>
-          AI Issue Intelligence
-        </div>
-        <h1 class="page-header__title">Analyze a GitHub Issue</h1>
-        <p class="page-header__sub">
-          Paste a public GitHub issue URL and let the agent reason through the
-          problem, identify root causes, and generate a precise action plan.
-        </p>
-      </div>
-
-      <!-- ── INPUT CARD ── -->
-      <div class="input-card">
-        <div class="input-card__header">
-          <span class="input-card__label">github_issue_url</span>
-          <span class="input-card__hint">public repository required</span>
-        </div>
-
-        <div class="input-card__row">
-          <div class="input-wrapper">
-            <span class="input-prefix" aria-hidden="true">→</span>
-            <input
-              type="text"
-              [(ngModel)]="issueUrl"
-              placeholder="https://github.com/owner/repo/issues/123"
-              [disabled]="isLoading"
-              class="input-url"
-              autocomplete="off"
-              spellcheck="false"
-            />
+     <!-- ── TOP NAV ── -->
+     <header class="app-nav">
+          <div class="app-nav__brand" (click)="goToLanding()">
+               <span class="app-nav__dot"></span>
+               <span class="app-nav__name">Ission Agent</span>
+               <span class="app-nav__version">v2.0</span>
           </div>
 
-          <button
-            (click)="onAnalyze()"
-            [disabled]="isLoading || !issueUrl"
-            class="btn-analyze"
-            [class.btn-analyze--loading]="isLoading"
-          >
-            <span *ngIf="!isLoading" class="btn-analyze__icon">✦</span>
-            <span *ngIf="isLoading" class="btn-analyze__spinner"></span>
-            {{ isLoading ? 'Processing...' : 'Analyze Issue' }}
-          </button>
-        </div>
-      </div>
-
-      <!-- ── LOADING STATE ── -->
-      <div *ngIf="isLoading" class="loading-panel">
-        <div class="loading-panel__stages">
-          <div class="loading-stage loading-stage--active">
-            <div class="loading-stage__dot"></div>
-            <span>Fetching issue context</span>
-          </div>
-          <div class="loading-stage__line"></div>
-          <div class="loading-stage loading-stage--active" style="animation-delay: 0.4s">
-            <div class="loading-stage__dot"></div>
-            <span>Sending to AI agent</span>
-          </div>
-          <div class="loading-stage__line"></div>
-          <div class="loading-stage" style="animation-delay: 0.8s">
-            <div class="loading-stage__dot loading-stage__dot--pulse"></div>
-            <span>Generating analysis&hellip;</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── RESULTS ── -->
-      <div *ngIf="apiResponse" class="results-area">
-
-        <!-- Status ribbon -->
-        <div class="result-status"
-             [class.result-status--success]="apiResponse.status === 'sucesso'"
-             [class.result-status--error]="apiResponse.status === 'erro'">
-          <span *ngIf="apiResponse.status === 'sucesso'" class="result-status__icon">✓</span>
-          <span *ngIf="apiResponse.status !== 'sucesso'" class="result-status__icon">✗</span>
-          <span *ngIf="apiResponse.status === 'sucesso'">Analysis complete</span>
-          <span *ngIf="apiResponse.status !== 'sucesso'">Analysis failed</span>
-          <span class="result-status__sep">·</span>
-          <span class="result-status__meta">{{ displayedThoughts.length }} reasoning steps</span>
-        </div>
-
-        <!-- ── AGENT REASONING ── -->
-        <div class="reasoning-card">
-          <div class="reasoning-card__header">
-            <div class="reasoning-card__title">
-              <span class="rc-icon rc-icon--purple">⬡</span>
-              Agent Reasoning
-            </div>
-            <span class="mono-tag" *ngIf="!isAnimating && showFinalComment">complete</span>
-            <span class="mono-tag mono-tag--live" *ngIf="isAnimating">
-              <span class="live-dot"></span>live
-            </span>
+          <div class="app-nav__center hide-mobile">
+               <span class="app-nav__pipe-label">GitHub Issue</span>
+               <span class="app-nav__pipe-arrow">→</span>
+               <span class="app-nav__pipe-label">AI Analysis</span>
+               <span class="app-nav__pipe-arrow">→</span>
+               <span class="app-nav__pipe-label">Action Plan</span>
+               <span class="app-nav__pipe-arrow">→</span>
+               <span class="app-nav__pipe-label app-nav__pipe-label--accent">Publish</span>
           </div>
 
-          <!-- Git-log style thought stream -->
-          <div class="thought-stream">
-            <div class="thought-stream__track"></div>
-
-            <div
-              *ngFor="let thought of displayedThoughts; let last = last; let i = index"
-              class="thought-entry thought-animate"
-            >
-              <div class="thought-entry__node"
-                   [class.thought-entry__node--active]="last && isAnimating">
-              </div>
-              <div class="thought-entry__body">
-                <span class="thought-entry__index">{{ (i + 1).toString().padStart(2, '0') }}</span>
-                <span class="thought-entry__text">{{ thought }}</span>
-                <span *ngIf="last && isAnimating" class="thought-entry__spinner"></span>
-              </div>
-            </div>
-
-            <!-- Processing indicator -->
-            <div *ngIf="isAnimating" class="thinking-indicator">
-              <div class="thought-entry__node thought-entry__node--ghost"></div>
-              <div class="thinking-dots">
-                <span></span><span></span><span></span>
-              </div>
-              <span class="thinking-text">Reasoning&hellip;</span>
-            </div>
+          <div class="app-nav__auth">
+               <app-auth-status></app-auth-status>
           </div>
-        </div>
+     </header>
 
-        <!-- ── TECHNICAL PLAN ── -->
-        <div *ngIf="showFinalComment" class="plan-card final-comment-section">
-          <div class="plan-card__header">
-            <div class="plan-card__title">
-              <span class="rc-icon rc-icon--green">✓</span>
-              Technical Action Plan
-            </div>
-            <span class="status-badge">ready to publish</span>
+     <!-- ── MAIN CONTENT ── -->
+     <main class="app-main">
+          <div class="analyzer-column">
+
+               <!-- ── PAGE HEADER ── -->
+               <div class="page-header">
+                    <div class="page-header__eyebrow">
+                         <span class="eyebrow-dot"></span>
+                         AI Issue Intelligence
+                    </div>
+                    <h1 class="page-header__title">Analyze a GitHub Issue</h1>
+                    <p class="page-header__sub">
+                         Paste a public GitHub issue URL and let the agent reason through the
+                         problem, identify root causes, and generate a precise action plan.
+                    </p>
+
+                    <!-- GitHub login prompt — visible only when not authenticated -->
+                    <div class="auth-prompt"
+                         *ngIf="!(authService.isAuthenticated$ | async) && !(authService.isLoading$ | async)">
+                         <span class="auth-prompt__text">Connect GitHub to publish analysis directly to issues</span>
+                         <button class="btn-primary" (click)="authService.login()">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                   <path
+                                        d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                              </svg>
+                              Connect GitHub
+                         </button>
+                    </div>
+               </div>
+
+               <!-- ── INPUT CARD ── -->
+               <div class="input-card">
+                    <div class="input-card__header">
+                         <span class="input-card__label">github_issue_url</span>
+                         <span class="input-card__hint">public repository required</span>
+                    </div>
+
+                    <div class="input-card__row">
+                         <div class="input-wrapper">
+                              <span class="input-prefix" aria-hidden="true">→</span>
+                              <input type="text" [(ngModel)]="issueUrl"
+                                   placeholder="https://github.com/owner/repo/issues/123" [disabled]="isLoading"
+                                   class="input-url" autocomplete="off" spellcheck="false" />
+                         </div>
+
+                         <button (click)="onAnalyze()" [disabled]="isLoading || !issueUrl" class="btn-analyze"
+                              [class.btn-analyze--loading]="isLoading">
+                              <span *ngIf="!isLoading" class="btn-analyze__icon">✦</span>
+                              <span *ngIf="isLoading" class="btn-analyze__spinner"></span>
+                              {{ isLoading ? 'Processing...' : 'Analyze Issue' }}
+                         </button>
+                    </div>
+               </div>
+
+               <!-- ── LOADING STATE ── -->
+               <div *ngIf="isLoading" class="loading-panel">
+                    <div class="loading-panel__stages">
+                         <div class="loading-stage loading-stage--active">
+                              <div class="loading-stage__dot"></div>
+                              <span>Fetching issue context</span>
+                         </div>
+                         <div class="loading-stage__line"></div>
+                         <div class="loading-stage loading-stage--active" style="animation-delay: 0.4s">
+                              <div class="loading-stage__dot"></div>
+                              <span>Sending to AI agent</span>
+                         </div>
+                         <div class="loading-stage__line"></div>
+                         <div class="loading-stage" style="animation-delay: 0.8s">
+                              <div class="loading-stage__dot loading-stage__dot--pulse"></div>
+                              <span>Generating analysis&hellip;</span>
+                         </div>
+                    </div>
+               </div>
+
+               <!-- ── RESULTS ── -->
+               <div *ngIf="apiResponse" class="results-area">
+
+                    <!-- Status ribbon -->
+                    <div class="result-status" [class.result-status--success]="apiResponse.status === 'sucesso'"
+                         [class.result-status--error]="apiResponse.status === 'erro'">
+                         <span *ngIf="apiResponse.status === 'sucesso'" class="result-status__icon">✓</span>
+                         <span *ngIf="apiResponse.status !== 'sucesso'" class="result-status__icon">✗</span>
+                         <span *ngIf="apiResponse.status === 'sucesso'">Analysis complete</span>
+                         <span *ngIf="apiResponse.status !== 'sucesso'">Analysis failed</span>
+                         <span class="result-status__sep">·</span>
+                         <span class="result-status__meta">{{ displayedThoughts.length }} reasoning steps</span>
+                    </div>
+
+                    <!-- ── AGENT REASONING ── -->
+                    <div class="reasoning-card">
+                         <div class="reasoning-card__header">
+                              <div class="reasoning-card__title">
+                                   <span class="rc-icon rc-icon--purple">⬡</span>
+                                   Agent Reasoning
+                              </div>
+                              <span class="mono-tag" *ngIf="!isAnimating && showFinalComment">complete</span>
+                              <span class="mono-tag mono-tag--live" *ngIf="isAnimating">
+                                   <span class="live-dot"></span>live
+                              </span>
+                         </div>
+
+                         <!-- Git-log style thought stream -->
+                         <div class="thought-stream">
+                              <div class="thought-stream__track"></div>
+
+                              <div *ngFor="let thought of displayedThoughts; let last = last; let i = index"
+                                   class="thought-entry thought-animate">
+                                   <div class="thought-entry__node"
+                                        [class.thought-entry__node--active]="last && isAnimating">
+                                   </div>
+                                   <div class="thought-entry__body">
+                                        <span class="thought-entry__index">{{ (i + 1).toString().padStart(2, '0')
+                                             }}</span>
+                                        <span class="thought-entry__text">{{ thought }}</span>
+                                        <span *ngIf="last && isAnimating" class="thought-entry__spinner"></span>
+                                   </div>
+                              </div>
+
+                              <!-- Processing indicator -->
+                              <div *ngIf="isAnimating" class="thinking-indicator">
+                                   <div class="thought-entry__node thought-entry__node--ghost"></div>
+                                   <div class="thinking-dots">
+                                        <span></span><span></span><span></span>
+                                   </div>
+                                   <span class="thinking-text">Reasoning&hellip;</span>
+                              </div>
+                         </div>
+                    </div>
+
+                    <!-- ── TECHNICAL PLAN ── -->
+                    <div *ngIf="showFinalComment" class="plan-card final-comment-section">
+                         <div class="plan-card__header">
+                              <div class="plan-card__title">
+                                   <span class="rc-icon rc-icon--green">✓</span>
+                                   Technical Action Plan
+                              </div>
+                              <span class="status-badge">ready to publish</span>
+                         </div>
+
+                         <div class="markdown-body">
+                              <markdown [data]="apiResponse.finalComment" [disableSanitizer]="true"></markdown>
+                         </div>
+
+                         <!-- ── PUBLISH SECTION ── -->
+                         <div *ngIf="apiResponse.status === 'sucesso'" class="publish-section">
+                              <div class="publish-divider"></div>
+
+                              <div class="publish-row">
+                                   <div class="publish-info">
+                                        <p class="publish-info__title">Publish to GitHub Issue</p>
+                                        <p class="publish-info__sub">
+                                             Post this plan as a comment directly on the original issue.
+                                        </p>
+                                   </div>
+
+                                   <button (click)="onPublishComment()" [disabled]="isPublishing || publishSuccess"
+                                        class="btn-publish" [class.btn-publish--loading]="isPublishing"
+                                        [class.btn-publish--done]="publishSuccess">
+                                        <span *ngIf="!isPublishing && !publishSuccess"
+                                             class="btn-publish__icon">↑</span>
+                                        <span *ngIf="isPublishing"
+                                             class="btn-analyze__spinner btn-analyze__spinner--sm"></span>
+                                        <span *ngIf="publishSuccess" class="btn-publish__icon">✓</span>
+
+                                        <span *ngIf="!isPublishing && !publishSuccess">Publish Plan</span>
+                                        <span *ngIf="isPublishing">Publishing&hellip;</span>
+                                        <span *ngIf="publishSuccess">Published!</span>
+                                   </button>
+                              </div>
+
+                              <!-- Success feedback -->
+                              <div *ngIf="publishSuccess" class="publish-success">
+                                   <span class="publish-success__icon">✓</span>
+                                   <span>Comment published successfully.</span>
+                                   <a *ngIf="commentUrl" [href]="commentUrl" target="_blank" rel="noopener"
+                                        class="publish-success__link">
+                                        View on GitHub →
+                                   </a>
+                              </div>
+
+                              <!-- Error feedback -->
+                              <div *ngIf="publishError" class="publish-error">
+                                   <span>✗</span>
+                                   <span>{{ publishError }}</span>
+                              </div>
+                         </div>
+                    </div>
+
+               </div>
+               <!-- /results-area -->
+
           </div>
-
-          <div class="markdown-body">
-            <markdown [data]="apiResponse.finalComment" [disableSanitizer]="true"></markdown>
-          </div>
-
-          <!-- ── PUBLISH SECTION ── -->
-          <div *ngIf="apiResponse.status === 'sucesso'" class="publish-section">
-            <div class="publish-divider"></div>
-
-            <div class="publish-row">
-              <div class="publish-info">
-                <p class="publish-info__title">Publish to GitHub Issue</p>
-                <p class="publish-info__sub">
-                  Post this plan as a comment directly on the original issue.
-                </p>
-              </div>
-
-              <button
-                (click)="onPublishComment()"
-                [disabled]="isPublishing || publishSuccess"
-                class="btn-publish"
-                [class.btn-publish--loading]="isPublishing"
-                [class.btn-publish--done]="publishSuccess"
-              >
-                <span *ngIf="!isPublishing && !publishSuccess" class="btn-publish__icon">↑</span>
-                <span *ngIf="isPublishing" class="btn-analyze__spinner btn-analyze__spinner--sm"></span>
-                <span *ngIf="publishSuccess" class="btn-publish__icon">✓</span>
-
-                <span *ngIf="!isPublishing && !publishSuccess">Publish Plan</span>
-                <span *ngIf="isPublishing">Publishing&hellip;</span>
-                <span *ngIf="publishSuccess">Published!</span>
-              </button>
-            </div>
-
-            <!-- Success feedback -->
-            <div *ngIf="publishSuccess" class="publish-success">
-              <span class="publish-success__icon">✓</span>
-              <span>Comment published successfully.</span>
-              <a *ngIf="commentUrl" [href]="commentUrl" target="_blank" rel="noopener"
-                 class="publish-success__link">
-                View on GitHub →
-              </a>
-            </div>
-
-            <!-- Error feedback -->
-            <div *ngIf="publishError" class="publish-error">
-              <span>✗</span>
-              <span>{{ publishError }}</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-      <!-- /results-area -->
-
-    </div>
-    <!-- /analyzer-column -->
-  </main>
+          <!-- /analyzer-column -->
+     </main>
 
 </div>
 <!-- /app-shell -->

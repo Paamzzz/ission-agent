@@ -27,7 +27,7 @@ class CallbackRequest(BaseModel):
     """Payload received from the frontend after the GitHub redirect."""
 
     code: str
-    code_verifier: str
+    code_verifier: str | None = None  # GitHub does not support PKCE; field kept for forward-compat
 
 
 class AuthLoginResponse(BaseModel):

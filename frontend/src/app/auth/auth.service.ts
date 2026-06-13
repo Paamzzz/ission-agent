@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, from, throwError, EMPTY } from 'rxjs';
+import { BehaviorSubject, Observable, throwError, EMPTY } from 'rxjs';
 import { map, catchError, finalize, tap } from 'rxjs/operators';
 import { AuthenticatedUser, AuthLoginResponse } from './auth.models';
 
@@ -12,8 +12,7 @@ export class AuthService {
      private http = inject(HttpClient);
      private router = inject(Router);
 
-     // Private PKCE fields — never written to any Web Storage or cookie
-     #codeVerifier: string | null = null;
+     // State value held in memory only — cleared after single use
      #state: string | null = null;
 
      // Public observables
@@ -26,23 +25,8 @@ export class AuthService {
      );
 
      // ---------------------------------------------------------------------------
-     // PKCE utility methods
+     // State generation utility
      // ---------------------------------------------------------------------------
-
-     /** Generates a code verifier: 96 random bytes encoded as base64url (no padding). */
-     async generateCodeVerifier(): Promise<string> {
-          const array = new Uint8Array(96);
-          crypto.getRandomValues(array);
-          return this.toBase64Url(array);
-     }
-
-     /** Computes SHA-256 of the verifier and base64url-encodes the result. */
-     async computeCodeChallenge(verifier: string): Promise<string> {
-          const encoder = new TextEncoder();
-          const data = encoder.encode(verifier);
-          const digest = await crypto.subtle.digest('SHA-256', data);
-          return this.toBase64Url(new Uint8Array(digest));
-     }
 
      /** Generates a state value: 16 random bytes encoded as base64url (no padding). */
      async generateState(): Promise<string> {
@@ -66,21 +50,21 @@ export class AuthService {
 
      /**
       * Initiates the OAuth flow:
-      *   1. Generates PKCE params via Web Crypto API.
-      *   2. Persists verifier + state to sessionStorage so they survive the
-      *      full-page redirect to GitHub and back. Both are cleared on first use.
+      *   1. Generates a cryptographically random state value via Web Crypto API.
+      *   2. Persists state to sessionStorage so it survives the full-page redirect
+      *      to GitHub and back. Cleared on first use in handleCallback().
       *   3. Fetches the authorization URL from the backend.
-      *   4. Appends state + code_challenge to the URL and redirects the browser.
+      *   4. Appends state to the URL and redirects the browser.
+      *
+      * NOTE: GitHub does not support PKCE (code_challenge / code_verifier).
+      * We use state-only CSRF protection, which is the standard GitHub OAuth flow.
       */
      async login(): Promise<void> {
           try {
-               this.#codeVerifier = await this.generateCodeVerifier();
-               const challenge = await this.computeCodeChallenge(this.#codeVerifier);
                this.#state = await this.generateState();
 
                // Persist across the full-page redirect. Cleared immediately after
                // single use in handleCallback().
-               sessionStorage.setItem('oauth_code_verifier', this.#codeVerifier);
                sessionStorage.setItem('oauth_state', this.#state);
 
                this.isLoading$.next(true);
@@ -95,11 +79,10 @@ export class AuthService {
                     throw new Error('No response from login endpoint');
                }
 
+               // Append only the state — GitHub does not accept code_challenge
                const fullUrl =
                     `${response.authorization_url}` +
-                    `&state=${encodeURIComponent(this.#state)}` +
-                    `&code_challenge=${encodeURIComponent(challenge)}` +
-                    `&code_challenge_method=S256`;
+                    `&state=${encodeURIComponent(this.#state)}`;
 
                window.location.href = fullUrl;
           } catch (err: unknown) {
@@ -116,37 +99,33 @@ export class AuthService {
 
      /**
       * Handles the OAuth callback:
-      *   1. Restores verifier + state from sessionStorage (they were stored before
-      *      the full-page redirect to GitHub). Clears them immediately after reading.
-      *   2. Validates the returned state against the stored state.
-      *   3. POSTs the code + code_verifier to the backend.
-      *   4. Updates currentUser$ on success; clears all PKCE fields either way.
+      *   1. Restores state from sessionStorage (stored before the full-page
+      *      redirect to GitHub). Cleared immediately after reading.
+      *   2. Validates the returned state against the stored state (CSRF check).
+      *   3. POSTs the code to the backend for server-side token exchange.
+      *   4. Updates currentUser$ on success.
+      *
+      * NOTE: GitHub does not support PKCE — no code_verifier is sent.
       */
      handleCallback(code: string, state: string): Observable<void> {
-          // Restore PKCE params that were persisted before the redirect.
-          // Read-once: immediately remove from sessionStorage regardless of outcome.
-          const storedVerifier = sessionStorage.getItem('oauth_code_verifier');
+          // Restore state that was persisted before the redirect.
+          // Read-once: immediately remove from sessionStorage.
           const storedState = sessionStorage.getItem('oauth_state');
-          sessionStorage.removeItem('oauth_code_verifier');
           sessionStorage.removeItem('oauth_state');
+          // Also clear any legacy PKCE key that may exist from older code paths
+          sessionStorage.removeItem('oauth_code_verifier');
 
-          // Restore into private fields so the rest of the method works unchanged.
-          this.#codeVerifier = storedVerifier;
           this.#state = storedState;
 
           if (state !== this.#state) {
                this.authError$.next('State mismatch — possible CSRF attack. Please try again.');
-               this.#codeVerifier = null;
                this.#state = null;
                return throwError(() => new Error('OAuth state mismatch'));
           }
 
           this.isLoading$.next(true);
 
-          const body = {
-               code,
-               code_verifier: this.#codeVerifier,
-          };
+          const body = { code };
 
           return this.http
                .post<AuthenticatedUser>(`${API_BASE}/auth/github/callback`, body, {
@@ -155,7 +134,6 @@ export class AuthService {
                .pipe(
                     tap((user) => {
                          this.currentUser$.next(user);
-                         this.#codeVerifier = null;
                          this.#state = null;
                     }),
                     map(() => void 0),
@@ -163,7 +141,6 @@ export class AuthService {
                          const message =
                               err?.error?.detail ?? err?.message ?? 'Callback failed';
                          this.authError$.next(message);
-                         this.#codeVerifier = null;
                          this.#state = null;
                          this.isLoading$.next(false);
                          return throwError(() => err);

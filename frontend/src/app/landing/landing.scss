@@ -1,12 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Ission Agent · Landing Page — landing.css
+   Ission Agent · Landing Page — landing.scss
    ISOLATION STRATEGY: all rules scoped under .landing-root to
-   prevent bleed from app.scss global styles.
+   prevent bleed from global styles.scss.
+   Google Fonts are loaded once in styles.scss — not re-imported here.
    ═══════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
-
-/* ── Reset layer: neutralize app.scss overrides inside landing ── */
+/* ── Reset layer: neutralize overrides inside landing ── */
 .landing-root *,
 .landing-root *::before,
 .landing-root *::after {

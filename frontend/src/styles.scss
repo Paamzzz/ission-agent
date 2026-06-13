@@ -219,11 +219,10 @@ body {
 ::-webkit-scrollbar-track { background: var(--dark); }
 ::-webkit-scrollbar-thumb { background: rgba(123, 47, 190, 0.3); border-radius: 3px; }
 
-/* ── Hide Connect GitHub button globally ── */
-/* The authenticated state (avatar + username + disconnect) remains visible */
-.btn-connect {
-  display: none !important;
-}
+/* ── Hide Connect GitHub button in nav (analyzer page) ── */
+/* The unauthenticated "Connect GitHub" button in app-auth-status is hidden
+   in the analyzer nav. A more prominent .auth-prompt CTA is rendered instead.
+   Scoped via analyser.scss to avoid affecting other pages. */
 
 /* ── Responsive helpers ── */
 @media (max-width: 768px) {

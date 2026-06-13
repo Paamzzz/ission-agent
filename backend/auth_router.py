@@ -87,10 +87,10 @@ def github_login() -> AuthLoginResponse:
     """
     Return the GitHub authorization URL for the OAuth flow.
 
-    The frontend is responsible for appending the PKCE ``code_challenge``
-    and ``state`` query parameters before redirecting the user, because
-    those values are generated in the browser via the Web Crypto API and
-    never sent to the backend during this step.
+    GitHub does NOT support PKCE (code_challenge / code_verifier), so
+    we use a plain state-only flow.  The frontend generates a ``state``
+    value via the Web Crypto API, stores it in sessionStorage, and appends
+    it to the URL returned here before redirecting the user.
 
     Returns 503 when ``GITHUB_CLIENT_ID`` is not configured.
     """
@@ -103,11 +103,13 @@ def github_login() -> AuthLoginResponse:
 
     redirect_uri = os.getenv("GITHUB_REDIRECT_URI", _DEFAULT_REDIRECT_URI)
 
+    # NOTE: Do NOT include code_challenge_method — GitHub does not support PKCE.
+    # The state parameter is appended by the frontend after generating it via
+    # the Web Crypto API.
     params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "scope": "repo user",
-        "code_challenge_method": "S256",
     }
 
     authorization_url = f"{_GITHUB_AUTHORIZE_URL}?{urlencode(params)}"
@@ -130,17 +132,20 @@ async def github_callback(
     """
     Exchange a GitHub authorization code for a session.
 
-    Accepts ``{code, code_verifier}``, exchanges the code for a GitHub
-    access token, fetches the user's profile, creates a server-side
-    session, and returns the public :class:`AuthenticatedUser` data.
+    Accepts ``{code}``, exchanges the code for a GitHub access token,
+    fetches the user's profile, creates a server-side session, and returns
+    the public :class:`AuthenticatedUser` data.
 
-    The session ID is delivered via an ``HttpOnly; SameSite=Strict``
+    NOTE: GitHub does NOT support PKCE.  The ``code_verifier`` field in
+    :class:`CallbackRequest` is intentionally ignored here — it is kept in
+    the model only for forward-compatibility and is never forwarded to GitHub.
+
+    The session ID is delivered via an ``HttpOnly; SameSite=Lax``
     cookie — the access token is never included in the response body.
 
     Returns:
         - **200** with :class:`AuthenticatedUser` on success.
-        - **400** if GitHub returns an error during token exchange, or if
-          the ``redirect_uri`` does not match ``GITHUB_REDIRECT_URI``.
+        - **400** if GitHub returns an error during token exchange.
         - **503** if ``GITHUB_CLIENT_ID`` or ``GITHUB_CLIENT_SECRET`` are
           not configured.
     """
@@ -153,10 +158,11 @@ async def github_callback(
             detail="GitHub OAuth not configured",
         )
 
-    # 2. Validate redirect_uri
+    # 2. Resolve redirect_uri
     redirect_uri = os.getenv("GITHUB_REDIRECT_URI", _DEFAULT_REDIRECT_URI)
 
-    # 3. Exchange code for token
+    # 3. Exchange code for token.
+    # NOTE: code_verifier is deliberately excluded — GitHub does not support PKCE.
     async with httpx.AsyncClient() as client:
         token_response = await client.post(
             _GITHUB_TOKEN_URL,
@@ -164,7 +170,6 @@ async def github_callback(
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "code": body.code,
-                "code_verifier": body.code_verifier,
                 "redirect_uri": redirect_uri,
             },
             headers={"Accept": "application/json"},
@@ -218,12 +223,15 @@ async def github_callback(
         expires_at=expires_at,
     )
 
-    # 9. Set HttpOnly session cookie
+    # 9. Set HttpOnly session cookie.
+    # SameSite=Lax is required: the callback arrives via a top-level GET
+    # redirect from github.com, which SameSite=Strict would block from
+    # receiving the cookie on subsequent requests.
     response.set_cookie(
         key="session_id",
         value=session_id,
         httponly=True,
-        samesite="strict",
+        samesite="lax",
         path="/",
     )
 
@@ -285,5 +293,5 @@ def logout(request: Request, response: Response) -> dict:
     if session_id:
         sessions.pop(session_id, None)
 
-    response.delete_cookie(key="session_id", path="/", samesite="strict")
+    response.delete_cookie(key="session_id", path="/", httponly=True, samesite="lax")
     return {"message": "Logged out"}

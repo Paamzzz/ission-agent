@@ -1,6 +1,6 @@
 import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
+import { CommonModule, AsyncPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
 import { IssionService, AgentResponse } from '../services/ission.service';
@@ -10,7 +10,7 @@ import { AuthStatusComponent } from '../auth/auth-status.component';
 @Component({
      selector: 'app-analyser',
      standalone: true,
-     imports: [FormsModule, CommonModule, MarkdownComponent, AuthStatusComponent],
+     imports: [FormsModule, CommonModule, AsyncPipe, MarkdownComponent, AuthStatusComponent],
      templateUrl: './analyser.html',
      styleUrl: './analyser.scss'
 })
@@ -33,7 +33,7 @@ export class Analyser implements OnInit {
      constructor(
           private readonly issionService: IssionService,
           private readonly cdr: ChangeDetectorRef,
-          private readonly authService: AuthService,
+          readonly authService: AuthService,
           private readonly router: Router
      ) { }
 

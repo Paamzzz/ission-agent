@@ -1,10 +1,8 @@
 // ══════════════════════════════════════════════════════════════════
-//  Ission Agent · Analyzer Styles — app.scss
-//  Design system: dark/light hybrid, purple identity
-//  All class names referenced in app.html are present here.
+//  Ission Agent · Analyzer Styles — analyser.scss
+//  Design system: dark/futuristic purple identity
+//  Google Fonts are loaded once in styles.scss — not re-imported here.
 // ══════════════════════════════════════════════════════════════════
-
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 // ── Design tokens ─────────────────────────────────────────────────
 $iris:          #7B2FBE;
@@ -1023,12 +1021,68 @@ html, body {
 // ── Responsive ────────────────────────────────────────────────────
 .hide-mobile { display: flex; }
 
-// ── Hide Connect GitHub (unauthenticated state) ───────────────────
-// Removes the Connect GitHub button from the analyzer nav.
-// The authenticated state (avatar + disconnect) is preserved.
-app-analyser .btn-connect,
-.btn-connect {
-  display: none !important;
+// ── Connect GitHub button in the nav — hidden on analyser because we show
+// a more prominent auth-prompt below the page header instead.
+// See .auth-prompt below.
+app-analyser app-auth-status .btn-connect {
+  display: none;
+}
+
+// ── Auth prompt — shown below page header when not authenticated ──────────────
+.auth-prompt {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: rgba($iris, 0.06);
+  border: 1px solid rgba($iris-mid, 0.25);
+  border-radius: 12px;
+  animation: fadeUp 0.5s 0.15s $ease-out both;
+
+  &__text {
+    font-size: 0.85rem;
+    color: $text-muted;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  // Primary gradient button — matches landing page btn-primary
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 22px;
+    background: linear-gradient(135deg, $iris, $iris-mid);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-family: $font-display;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba($iris, 0.4);
+    transition: transform 0.2s $ease-out, box-shadow 0.2s;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba($iris, 0.55);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+
+    svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+  }
 }
 
 @media (max-width: 680px) {
