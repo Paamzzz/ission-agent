@@ -73,15 +73,15 @@ export class AuthCallbackComponent implements OnInit {
 
                if (!code || !state) {
                     this.authService.authError$.next('Authentication failed: missing code or state parameter.');
-                    this.router.navigate(['/']);
+                    this.router.navigate(['/landing']);
                     return;
                }
 
                this.authService.handleCallback(code, state).subscribe({
                     next: () => {
                          // currentUser$ is already populated by handleCallback's tap().
-                         // Navigate home — AuthStatusComponent will reflect the new state.
-                         this.router.navigate(['/']);
+                         // Navigate to analyzer — AuthStatusComponent will reflect the new state.
+                         this.router.navigate(['/analyzer']);
                     },
                     error: () => {
                          // authError$ is already set by AuthService; stay on page to show the error

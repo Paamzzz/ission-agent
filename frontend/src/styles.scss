@@ -219,6 +219,12 @@ body {
 ::-webkit-scrollbar-track { background: var(--dark); }
 ::-webkit-scrollbar-thumb { background: rgba(123, 47, 190, 0.3); border-radius: 3px; }
 
+/* ── Hide Connect GitHub button globally ── */
+/* The authenticated state (avatar + username + disconnect) remains visible */
+.btn-connect {
+  display: none !important;
+}
+
 /* ── Responsive helpers ── */
 @media (max-width: 768px) {
   .hide-mobile { display: none !important; }

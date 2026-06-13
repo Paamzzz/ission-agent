@@ -1024,6 +1024,9 @@ html, body {
 .hide-mobile { display: flex; }
 
 // ── Hide Connect GitHub (unauthenticated state) ───────────────────
+// Removes the Connect GitHub button from the analyzer nav.
+// The authenticated state (avatar + disconnect) is preserved.
+app-analyser .btn-connect,
 .btn-connect {
   display: none !important;
 }
