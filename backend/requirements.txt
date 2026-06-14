@@ -1,8 +1,12 @@
 fastapi>=0.110.0
 uvicorn>=0.29.0
 pydantic>=2.0.0
-google-generativeai>=0.7.0
+# Migrated from deprecated google-generativeai to the current google-genai SDK
+google-genai>=1.0.0
 python-dotenv>=1.0.0
 itsdangerous>=2.1.0
 httpx>=0.27.0
 pytest-asyncio>=0.23.0
+# Azure AI Foundry IQ — dependências obrigatórias para a camada de conhecimento (hackathon)
+azure-search-documents>=11.6.0
+azure-core>=1.30.0

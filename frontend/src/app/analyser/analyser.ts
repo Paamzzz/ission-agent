@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { MarkdownComponent } from 'ngx-markdown';
-import { IssionService, AgentResponse } from '../services/ission.service';
+import { IssionService, AgentResponse, QualityScore, IssueClassification } from '../services/ission.service';
 import { AuthService } from '../auth/auth.service';
 import { AuthStatusComponent } from '../auth/auth-status.component';
 
@@ -45,8 +45,34 @@ export class Analyser implements OnInit {
           this.router.navigate(['/landing']);
      }
 
+     /** Returns a CSS modifier class for the quality score level. */
+     get qualityLevelClass(): string {
+          const level = this.apiResponse?.qualityScore?.level;
+          if (level === 'high') return 'quality--high';
+          if (level === 'medium') return 'quality--medium';
+          return 'quality--low';
+     }
+
+     /** Returns a CSS modifier class for the classification priority. */
+     get priorityClass(): string {
+          const p = this.apiResponse?.classification?.priority?.toLowerCase();
+          if (p === 'critical') return 'priority--critical';
+          if (p === 'high') return 'priority--high';
+          if (p === 'medium') return 'priority--medium';
+          return 'priority--low';
+     }
+
+     /** Returns a CSS modifier class for the classification type. */
+     get typeClass(): string {
+          const t = this.apiResponse?.classification?.type?.toLowerCase();
+          if (t === 'bug') return 'type--bug';
+          if (t === 'feature') return 'type--feature';
+          if (t === 'enhancement') return 'type--enhancement';
+          if (t === 'documentation') return 'type--documentation';
+          return 'type--refactor';
+     }
+
      onAnalyze(): void {
-          // Reset state
           this.isLoading = true;
           this.apiResponse = null;
           this.displayedThoughts = [];
@@ -87,7 +113,6 @@ export class Analyser implements OnInit {
                     if (index < thoughts.length) {
                          setTimeout(showNext, 1500);
                     } else {
-                         // Last thought displayed — reveal plan after brief pause
                          setTimeout(() => {
                               this.isAnimating = false;
                               this.showFinalComment = true;
@@ -97,13 +122,9 @@ export class Analyser implements OnInit {
                }
           };
 
-          // Start cascade
           setTimeout(showNext, 600);
      }
 
-     /**
-      * Publishes the technical plan as a real comment on the GitHub issue.
-      */
      onPublishComment(): void {
           if (!this.apiResponse) return;
 

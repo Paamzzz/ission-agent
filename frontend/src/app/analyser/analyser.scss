@@ -1094,6 +1094,199 @@ app-analyser app-auth-status .btn-connect {
   .btn-publish { width: 100%; justify-content: center; }
 }
 
+// ── Intelligence Bar (Quality Score + Classification) ─────────────
+.intel-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  animation: fadeUp 0.4s 0.05s $ease-out both;
+
+  @media (max-width: 680px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.intel-card {
+  background: $dark-card;
+  border: 1px solid $glass-border;
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s;
+
+  // Quality level colour variants
+  &.quality--high  { border-color: rgba($green, 0.3); }
+  &.quality--medium { border-color: rgba($amber, 0.35); }
+  &.quality--low   { border-color: rgba($red, 0.3); }
+
+  // Classification card — subtle foundry tint
+  &--classification {
+    border-color: rgba($iris-mid, 0.3);
+    background: linear-gradient(135deg, $dark-card, rgba($iris, 0.04));
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  &__icon {
+    font-size: 0.85rem;
+    color: $text-muted;
+
+    &--foundry {
+      color: $iris-mid;
+    }
+  }
+
+  &__label {
+    font-family: $font-mono;
+    font-size: 0.65rem;
+    color: $text-faint;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  &__score {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  &__value {
+    font-family: $font-display;
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1;
+    color: $text-primary;
+
+    .quality--high  & { color: $green; }
+    .quality--medium & { color: $amber; }
+    .quality--low   & { color: $red;   }
+  }
+
+  &__max {
+    font-family: $font-mono;
+    font-size: 0.75rem;
+    color: $text-faint;
+    margin-right: 6px;
+  }
+
+  &__level {
+    font-family: $font-mono;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 100px;
+
+    .quality--high  & { color: $green; background: rgba($green, 0.1); border: 1px solid rgba($green, 0.25); }
+    .quality--medium & { color: $amber; background: rgba($amber, 0.1); border: 1px solid rgba($amber, 0.25); }
+    .quality--low   & { color: $red;   background: rgba($red, 0.1);   border: 1px solid rgba($red, 0.25);   }
+  }
+
+  &__missing {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+  }
+
+  &__missing-label {
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    color: $text-faint;
+    margin-right: 2px;
+  }
+
+  &__rationale {
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: $text-muted;
+    font-style: italic;
+  }
+}
+
+// ── Quality score progress bar ─────────────────────────────────────
+.quality-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 100px;
+  overflow: hidden;
+
+  &__fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 0.8s $ease-out;
+
+    .quality--high  & { background: linear-gradient(90deg, $green, lighten($green, 10%)); }
+    .quality--medium & { background: linear-gradient(90deg, $amber, lighten($amber, 10%)); }
+    .quality--low   & { background: linear-gradient(90deg, $red, lighten($red, 10%)); }
+  }
+}
+
+// ── Missing info tags ──────────────────────────────────────────────
+.missing-tag {
+  display: inline-flex;
+  align-items: center;
+  font-family: $font-mono;
+  font-size: 0.6rem;
+  padding: 2px 7px;
+  border-radius: 100px;
+  background: rgba($red, 0.08);
+  color: rgba($red, 0.8);
+  border: 1px solid rgba($red, 0.18);
+  white-space: nowrap;
+}
+
+// ── Classification badges ─────────────────────────────────────────
+.classification-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.class-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: $font-mono;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+
+  // Issue type variants
+  &.type--bug          { background: rgba($red, 0.12);     color: $red;       border-color: rgba($red, 0.3);     }
+  &.type--feature      { background: rgba($green, 0.12);   color: $green;     border-color: rgba($green, 0.3);   }
+  &.type--enhancement  { background: rgba($iris-mid, 0.12); color: $iris-mid;  border-color: rgba($iris-mid, 0.3);}
+  &.type--documentation{ background: rgba($amber, 0.1);    color: $amber;     border-color: rgba($amber, 0.25);  }
+  &.type--refactor     { background: rgba(99, 102, 241, 0.12); color: #818cf8; border-color: rgba(99, 102, 241, 0.3); }
+
+  // Priority variants
+  &.priority--critical { background: rgba($red, 0.15);     color: $red;       border-color: rgba($red, 0.4);     }
+  &.priority--high     { background: rgba($amber, 0.12);   color: $amber;     border-color: rgba($amber, 0.3);   }
+  &.priority--medium   { background: rgba($iris-mid, 0.12); color: $iris-mid;  border-color: rgba($iris-mid, 0.3);}
+  &.priority--low      { background: rgba(100, 116, 139, 0.12); color: #94a3b8; border-color: rgba(100, 116, 139, 0.25); }
+}
+
+.confidence-tag {
+  font-family: $font-mono;
+  font-size: 0.6rem;
+  color: $text-faint;
+  padding: 3px 8px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid $glass-border;
+  text-transform: lowercase;
+}
+
 // ── Keyframes ─────────────────────────────────────────────────────
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(16px); }

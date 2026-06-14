@@ -1,33 +1,63 @@
 """
-Ission Agent — Ponto de entrada da API.
-Responsável por expor os endpoints REST e configurar o CORS.
+Ission Agent — API entry point.
+
+SINGLETON PATTERN:
+  IssionOrchestrator is created ONCE during the FastAPI lifespan startup event.
+  It is stored in app.state.orchestrator and reused for every request.
+
+  This means:
+    - models.list() runs exactly once per process (not per request)
+    - Gemini client configuration is validated at startup
+    - If the model is invalid, the app refuses to start (fail-fast)
 """
 
 import json
+import logging
 import os
 import re
 import urllib.request
 import urllib.error
+from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from auth_router import router as auth_router, get_current_token
-from orchestrator import IssionOrchestrator
+from orchestrator import create_orchestrator
 
-# --- Carregar variáveis de ambiente ---
-load_dotenv()
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+log = logging.getLogger("ission.main")
 
-# --- Inicialização da aplicação ---
-app = FastAPI(title="Ission Agent API", version="0.1.0")
+# ---------------------------------------------------------------------------
+# Lifespan — creates the singleton orchestrator once at startup
+# ---------------------------------------------------------------------------
 
-# --- Registrar rotas de autenticação ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Startup: validate config + create orchestrator singleton.
+    Shutdown: nothing to clean up.
+
+    If create_orchestrator() raises (invalid model, bad key, model not in
+    models.list()), uvicorn will refuse to start and print the error.
+    """
+    load_dotenv()
+    log.info("[MAIN] Application startup — creating orchestrator singleton...")
+    app.state.orchestrator = create_orchestrator()
+    log.info("[MAIN] Orchestrator ready. Accepting requests.")
+    yield
+    log.info("[MAIN] Application shutdown.")
+
+
+# ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
+
+app = FastAPI(title="Ission Agent API", version="0.1.0", lifespan=lifespan)
+
 app.include_router(auth_router)
 
-# --- Configuração de CORS (permite o front-end Angular em dev) ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:4200"],
@@ -37,57 +67,55 @@ app.add_middleware(
 )
 
 
-# --- Modelos de entrada ---
+# ---------------------------------------------------------------------------
+# Request models
+# ---------------------------------------------------------------------------
+
 class IssueRequest(BaseModel):
-    """Payload esperado pelo endpoint de análise."""
     url: str
 
 
 class CommentRequest(BaseModel):
-    """Payload esperado pelo endpoint de publicação de comentário."""
     issue_url: str
     comment_body: str
 
 
-# --- Rotas ---
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
 @app.post("/api/analyze")
-async def analyze_issue(payload: IssueRequest, token: str | None = Depends(get_current_token)):
-    """Recebe a URL de uma issue e delega ao orquestrador."""
-    orchestrator = IssionOrchestrator()
+async def analyze_issue(
+    request: Request,
+    payload: IssueRequest,
+    token: str | None = Depends(get_current_token),
+):
+    """Receives a GitHub issue URL and delegates to the singleton orchestrator."""
+    orchestrator = request.app.state.orchestrator
     result = await orchestrator.process_issue(payload.url, token=token)
     return result
 
 
 @app.post("/api/publish-comment")
-async def publish_comment(payload: CommentRequest, token: str | None = Depends(get_current_token)):
-    """
-    Publica um comentário em uma issue do GitHub.
-    Extrai owner, repo e issue_number da URL e faz POST na API do GitHub.
-    """
-    # Determinar o token efetivo: sessão do usuário ou fallback para GITHUB_TOKEN
+async def publish_comment(
+    payload: CommentRequest,
+    token: str | None = Depends(get_current_token),
+):
+    """Publishes a comment on a GitHub issue."""
     effective_token = token if token else os.getenv("GITHUB_TOKEN")
 
     if not effective_token:
-        raise HTTPException(
-            status_code=500,
-            detail="GITHUB_TOKEN não configurado no servidor."
-        )
+        raise HTTPException(status_code=500, detail="GITHUB_TOKEN not configured.")
 
-    # Extrair owner, repo e issue_number da URL
     pattern = r"(?:https?://)?github\.com/([^/]+)/([^/]+)/issues/(\d+)"
     match = re.search(pattern, payload.issue_url.strip())
-
     if not match:
         raise HTTPException(
             status_code=400,
-            detail="URL inválida. Formato esperado: https://github.com/owner/repo/issues/123"
+            detail="Invalid URL. Expected: https://github.com/owner/repo/issues/123",
         )
 
-    owner = match.group(1)
-    repo = match.group(2)
-    issue_number = match.group(3)
-
-    # Montar a requisição para a API do GitHub
+    owner, repo, issue_number = match.group(1), match.group(2), match.group(3)
     api_url = f"https://api.github.com/repos/{owner}/{repo}/issues/{issue_number}/comments"
     body = json.dumps({"body": payload.comment_body}).encode("utf-8")
 
@@ -97,27 +125,21 @@ async def publish_comment(payload: CommentRequest, token: str | None = Depends(g
         "Content-Type": "application/json",
         "User-Agent": "Ission-Agent/0.1",
     }
-
-    request = urllib.request.Request(api_url, data=body, headers=headers, method="POST")
+    req = urllib.request.Request(api_url, data=body, headers=headers, method="POST")
 
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            response_data = json.loads(response.read().decode("utf-8"))
+        with urllib.request.urlopen(req, timeout=15) as response:
+            data = json.loads(response.read().decode("utf-8"))
             return {
                 "status": "sucesso",
-                "message": "Comentário publicado com sucesso na issue!",
-                "comment_url": response_data.get("html_url", ""),
+                "message": "Comment published successfully.",
+                "comment_url": data.get("html_url", ""),
             }
-
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8") if e.fp else ""
         raise HTTPException(
             status_code=e.code,
-            detail=f"Erro ao publicar comentário no GitHub (HTTP {e.code}): {error_body}"
+            detail=f"GitHub error (HTTP {e.code}): {error_body}",
         )
-
     except urllib.error.URLError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Falha de conexão com o GitHub: {str(e.reason)}"
-        )
+        raise HTTPException(status_code=502, detail=f"GitHub connection failed: {e.reason}")

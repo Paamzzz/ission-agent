@@ -117,6 +117,58 @@
                          <span class="result-status__meta">{{ displayedThoughts.length }} reasoning steps</span>
                     </div>
 
+                    <!-- ── INTELLIGENCE BADGES (Quality + Classification) ── -->
+                    <div *ngIf="apiResponse.qualityScore || apiResponse.classification" class="intel-bar">
+
+                         <!-- Quality Score -->
+                         <div *ngIf="apiResponse.qualityScore" class="intel-card" [ngClass]="qualityLevelClass">
+                              <div class="intel-card__header">
+                                   <span class="intel-card__icon">◈</span>
+                                   <span class="intel-card__label">Issue Quality</span>
+                              </div>
+                              <div class="intel-card__score">
+                                   <span class="intel-card__value">{{ apiResponse.qualityScore.score }}</span>
+                                   <span class="intel-card__max">/100</span>
+                                   <span class="intel-card__level">{{ apiResponse.qualityScore.level }}</span>
+                              </div>
+                              <!-- Score bar -->
+                              <div class="quality-bar">
+                                   <div class="quality-bar__fill" [style.width.%]="apiResponse.qualityScore.score">
+                                   </div>
+                              </div>
+                              <!-- Missing items -->
+                              <div *ngIf="apiResponse.qualityScore.missing.length > 0" class="intel-card__missing">
+                                   <span class="intel-card__missing-label">Missing:</span>
+                                   <span *ngFor="let item of apiResponse.qualityScore.missing" class="missing-tag">{{
+                                        item }}</span>
+                              </div>
+                         </div>
+
+                         <!-- Foundry IQ Classification -->
+                         <div *ngIf="apiResponse.classification" class="intel-card intel-card--classification">
+                              <div class="intel-card__header">
+                                   <span class="intel-card__icon intel-card__icon--foundry">⬡</span>
+                                   <span class="intel-card__label">Foundry IQ Classification</span>
+                              </div>
+                              <div class="classification-badges">
+                                   <span class="class-badge" [ngClass]="typeClass">
+                                        {{ apiResponse.classification.type }}
+                                   </span>
+                                   <span class="class-badge" [ngClass]="priorityClass">
+                                        {{ apiResponse.classification.priority }}
+                                   </span>
+                                   <span class="confidence-tag">
+                                        {{ apiResponse.classification.confidence }} confidence
+                                   </span>
+                              </div>
+                              <p class="intel-card__rationale">
+                                   {{ apiResponse.classification.rationale }}
+                              </p>
+                         </div>
+
+                    </div>
+                    <!-- /intel-bar -->
+
                     <!-- ── AGENT REASONING ── -->
                     <div class="reasoning-card">
                          <div class="reasoning-card__header">
