@@ -769,45 +769,156 @@ Respond with exactly this JSON structure:
         labels_text = ", ".join(labels) if labels else "none"
         extra_section = f"\n\n## Intelligence Context\n\n{extra_context}" if extra_context else ""
 
-        prompt = f"""{SYSTEM_PROMPT}
+        prompt = f"""You are Ission Agent. Produce a concise engineering plan card for the issue below.
+The output will be rendered directly in a UI dashboard — keep it clean, short, and presentation-ready.
 
----
+## Issue
 
-## GitHub Issue
-
-- **Repository:** {repo_name}
-- **Issue:** #{issue_number}
-- **Author:** @{author}
+- **Repo:** {repo_name} · **#{issue_number}** · @{author}
 - **Labels:** {labels_text}
 - **Title:** {title}
 
 ### Description
+{body[:600] if body.strip() else "*No description provided.*"}
 
-{body if body.strip() else "*No description provided.*"}
-
----
-
-## Architectural Context — Microsoft Foundry IQ (Recall)
-
-{foundry_context}
+## Foundry IQ Context
+{foundry_context[:500] if foundry_context else "*No architectural context available.*"}
 {extra_section}
 
 ---
 
-Generate a complete and structured technical action plan in Markdown.
+Return ONLY the following five sections, in this exact order and with these exact headings.
+Do not add any other sections. Do not add a preamble or closing remarks.
 
-Requirements for the plan:
-1. Cover all implementation steps — do not omit setup, testing, or deployment.
-2. Flag any assumptions explicitly if the issue quality score indicates missing information.
-3. Identify security concerns, edge cases, or dependencies that could block implementation.
-4. Ensure all steps are consistent with the Foundry IQ architectural guidelines above.
-5. Before outputting, verify internally that the plan is complete and self-consistent.
+### 1. Summary
+2–4 sentences explaining what the issue is and why it matters.
 
-Output only the final, reviewed plan — no meta-commentary, no preamble.
+### 2. Priority
+One word (LOW / MEDIUM / HIGH / CRITICAL) followed by a single-line justification.
+
+### 3. Implementation Steps
+8–10 short, actionable bullet points. No sub-bullets. No code blocks. No explanations longer than one line each.
+
+### 4. Risks
+3–5 bullet points. Each risk in one short sentence.
+
+### 5. Notes
+2–3 lines maximum. If quality score is LOW or MEDIUM, mention missing information once here only.
 """
-        text = await self._gemini_generate(prompt, TIMEOUT_GEMINI_PLANNER, "PLANNER")
-        log.info("[PLANNER] Plan generated (%d chars)", len(text))
-        return text
+
+        # ── Primary path: Gemini ──────────────────────────────────────────────
+        try:
+            text = await self._gemini_generate(prompt, TIMEOUT_GEMINI_PLANNER, "PLANNER")
+            log.info("[PLANNER] Gemini succeeded (%d chars)", len(text))
+            return text
+
+        # ── Fallback: deterministic inline plan ───────────────────────────────
+        # Triggered by: 503 UNAVAILABLE, timeout, any server/network error.
+        # Produces a fully structured Markdown plan from classifier output,
+        # quality score, and issue metadata — zero external dependencies.
+        # Frontend contract is unchanged: returns the same str as the Gemini path.
+        except Exception as planner_err:
+            log.warning(
+                "[PLANNER] Gemini failed → using fallback deterministic mode. "
+                "Reason: %s: %s",
+                type(planner_err).__name__, str(planner_err)[:200],
+            )
+
+            # ── Derive priority label from extra_context (injected by process_issue)
+            priority_label = "MEDIUM"
+            ec_lower = extra_context.lower()
+            if "priority: critical" in ec_lower:
+                priority_label = "HIGH"
+            elif "priority: high" in ec_lower:
+                priority_label = "HIGH"
+            elif "priority: low" in ec_lower:
+                priority_label = "LOW"
+
+            # ── Derive effort from issue body length + label count as a proxy
+            body_raw = issue_data.get("body", "") or ""
+            label_count = len(issue_data.get("labels", []))
+            body_len = len(body_raw)
+            if body_len > 1000 or label_count >= 3:
+                estimated_effort = "Large (3–5 days)"
+            elif body_len > 300 or label_count >= 1:
+                estimated_effort = "Medium (1–2 days)"
+            else:
+                estimated_effort = "Small (< 1 day)"
+
+            # ── Derive recommended action from classifier output (in extra_context)
+            issue_type = "Bug"  # default
+            for candidate in ("Bug", "Feature", "Enhancement", "Refactor", "Documentation"):
+                if f"type: {candidate.lower()}" in ec_lower:
+                    issue_type = candidate
+                    break
+
+            action_map = {
+                "Bug":           "Reproduce, isolate root cause, implement targeted fix, add regression test.",
+                "Feature":       "Define acceptance criteria, implement feature behind a flag, add unit and integration tests.",
+                "Enhancement":   "Review current implementation, apply incremental improvement, validate with existing test suite.",
+                "Refactor":      "Identify impacted modules, refactor incrementally, ensure test coverage is maintained.",
+                "Documentation": "Identify documentation gaps, write or update docs, submit PR for review.",
+            }
+            recommended_action = action_map.get(issue_type, action_map["Bug"])
+
+            # ── Foundry IQ context excerpt (first 400 chars, sanitised)
+            foundry_excerpt = foundry_context[:400].strip() if foundry_context else "Not available."
+            # Strip any leading Markdown noise
+            foundry_excerpt = re.sub(r"^\*\[Foundry IQ\][^\n]*\n?", "", foundry_excerpt).strip()
+            if not foundry_excerpt:
+                foundry_excerpt = "No architectural guidelines retrieved."
+
+            # ── Build the deterministic Markdown plan (mirrors Gemini output format) ──
+            raw_title = issue_data.get("title", "No title")
+
+            # Quality score for Notes section
+            quality_note = ""
+            ec_lower_notes = extra_context.lower()
+            if "score:" in ec_lower_notes:
+                import re as _re
+                m = _re.search(r"score:\s*(\d+)/100\s*\((\w+)\)", extra_context, _re.IGNORECASE)
+                if m and m.group(2).lower() in ("low", "medium"):
+                    quality_note = (
+                        f"Issue quality score is {m.group(2).upper()} ({m.group(1)}/100). "
+                        "Consider requesting additional context from the issue author before starting."
+                    )
+
+            fallback_plan = f"""> ⚠️ **Fallback Mode** — Gemini unavailable, plan generated deterministically.
+
+### 1. Summary
+
+{issue_type} in `{repo_name}` — **{raw_title}** (#{issue_number}, @{author}).
+{(body_raw[:200] + '...') if len(body_raw) > 200 else (body_raw.strip() or 'No description provided.')}
+Classification: **{issue_type}** · Priority signal: **{priority_label}** · Estimated effort: {estimated_effort}.
+
+### 2. Priority
+
+**{priority_label}** — {recommended_action}
+
+### 3. Implementation Steps
+
+- Triage and confirm the scope of the {issue_type.lower()} with the issue author.
+- Reproduce the issue locally (if applicable) and document observed behaviour.
+- Identify all modules, services, or components affected.
+- Review relevant Foundry IQ architectural guidelines before starting.
+- Design the solution approach; document decisions for non-trivial changes.
+- Implement the fix or feature following Recall coding conventions.
+- Write or update unit tests and integration tests for affected code paths.
+- Open a Pull Request referencing #{issue_number} and request peer review.
+
+### 4. Risks
+
+- Missing context may lead to incorrect scope assessment — verify requirements early.
+- Undocumented dependencies in affected modules could increase implementation effort.
+- Insufficient test coverage may allow regressions to reach production.
+
+### 5. Notes
+
+{quality_note if quality_note else "No additional observations."}
+*This plan was generated via deterministic fallback ({type(planner_err).__name__}). Review and expand steps as needed.*
+"""
+            log.info("[PLANNER] Fallback plan generated (%d chars)", len(fallback_plan))
+            return fallback_plan
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -820,15 +931,16 @@ Output only the final, reviewed plan — no meta-commentary, no preamble.
           Stage 0 — GitHub fetch        (no API)
           Stage 1 — Quality Score       (heuristic, no API)
           Stage 2 — Foundry RAG         (Azure AI Search)
-          Stage 3 — CLASSIFIER          (Gemini call #1: JSON classification)
-          Stage 4 — PLANNER             (Gemini call #2: full plan with self-review)
+          Stage 3 — CLASSIFIER          (Gemini call #1 — heuristic fallback on failure)
+          Stage 4 — PLANNER             (Gemini call #2 — deterministic fallback on failure)
 
-        Total Gemini calls: 2 per issue (down from 3 — CRITIC removed).
-        If CLASSIFIER fails/times out → heuristic fallback, pipeline continues.
-        If PLANNER fails → pipeline returns error (no fallback for core output).
+        Failure resilience:
+          CLASSIFIER failure  → heuristic fallback, pipeline continues uninterrupted.
+          PLANNER failure     → inline deterministic fallback, always returns valid Markdown.
+          Any 503/timeout     → caught inside _generate_plan_with_gemini, never reaches here.
 
-        503 resilience: with 2 sequential calls instead of 3, the probability
-        of hitting a 503 UNAVAILABLE somewhere in the pipeline is reduced by ~33%.
+        The pipeline ALWAYS returns status="sucesso" with a valid finalComment,
+        regardless of Gemini availability. This guarantees demo stability.
         """
         t0 = time.perf_counter()
         pid = f"{time.time_ns() % 1_000_000:06d}"
