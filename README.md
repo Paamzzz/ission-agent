@@ -1,12 +1,12 @@
 <div align="center">
 
-# 🚀 Ission Agent
+![ission](docs/ission.gif)
 
 ### Turn GitHub Issues into Architecture-Aware Development Plans
 
-Powered by Azure AI Foundry, Google Gemini and Multi-Stage AI Reasoning.
+Powered by Azure AI Foundry, Azure AI Search (RAG), Google Gemini 2.5 Flash and a 5-Stage AI Reasoning Pipeline.
 
-![Demo](assets/demo.gif)
+![Demo](docs/demo.gif)
 
 ![Angular](https://img.shields.io/badge/Angular-19-DD0031?style=for-the-badge&logo=angular&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi&logoColor=white)
@@ -31,112 +31,100 @@ This process is often manual, repetitive, and dependent on senior engineers.
 
 
 
-# 💡 The Solution
+## 💡 The Solution
+ 
+Ission Agent automates issue triage through a **5-stage AI reasoning pipeline**.
+ 
+Given a GitHub Issue URL, the agent:
+ 
+✅ Fetches the raw issue data from GitHub 
 
-Ission Agent automates issue triage through a multi-stage reasoning workflow.
+✅ Evaluates issue quality with a deterministic heuristic score 
 
-Given a GitHub issue, the agent:
+✅ Retrieves architecture guidelines via Azure AI Search (RAG)  
 
-✅ Evaluates issue quality
+✅ Classifies the issue using Azure AI Foundry + Gemini 2.5 Flash  
 
-✅ Classifies the issue using Azure AI Foundry
+✅ Generates a structured technical implementation plan  
 
-✅ Retrieves project-specific architecture guidelines
+✅ Publishes the final plan back to GitHub as a comment  
 
-✅ Generates an implementation plan
-
-✅ Reviews its own output through a Critic Agent
-
-✅ Publishes the final plan back to GitHub
 
 
 
 # 🧠 Reasoning Pipeline
 
-```text
-GitHub Issue
-      │
-      ▼
-Issue Quality Score
-      │
-      ▼
-Foundry IQ Classification
-      │
-      ▼
-Architecture Context (RAG)
-      │
-      ▼
-Planner Agent (Gemini)
-      │
-      ▼
-Critic Agent (Gemini)
-      │
-      ▼
-GitHub Comment
-```
+![diagram](docs/diagram.png)
 
 
 
 # 🏗️ System Architecture
 
 ```text
-┌────────────────────┐
-│ Angular Frontend   │
-└─────────┬──────────┘
-          │
-          ▼
-┌────────────────────┐
-│ FastAPI Backend    │
-│ Orchestrator       │
-└──────┬─────┬───────┘
-       │     │
-       │     └────► Azure AI Foundry
-       │           (Classification + RAG)
-       │
-       ├──────────► GitHub API
-       │
-       └──────────► Google Gemini
-                   (Planning + Critic)
+┌──────────────────────────┐
+│     Angular 19 Frontend  │
+│   (Thought Stream UI)    │
+└───────────┬──────────────┘
+            │ GitHub OAuth
+            ▼
+┌──────────────────────────┐
+│   FastAPI Backend        │
+│   Orchestrator           │
+└──────┬──────────┬────────┘
+       │          │
+       ▼          ▼
+ GitHub REST    Microsoft Azure AI Foundry
+ API v3         ├── Azure AI Search (RAG)
+                │   recall-architecture-guidelines
+                └── Foundry IQ Classifier
+                    + Gemini 2.5 Flash
+                        │
+                        ▼
+                   Planner Agent
+                   Gemini 2.5 Flash
+                   (built-in thinking)
+                        │
+                        ▼
+               GitHub Comment API
+               POST /issues/{id}/comments
 ```
 
 
 
-# ✨ Key Features
-
-- Issue Quality Scoring
-- Azure AI Foundry Classification
-- Architecture-Aware Planning
-- Retrieval-Augmented Generation (RAG)
-- Critic Agent Validation
-- GitHub Comment Publishing
-- OAuth Authentication
-- Transparent Thought Stream Visualization
+## ✨ Key Features
+ 
+-  GitHub OAuth authentication
+-  Issue Quality Scoring (0–100, deterministic heuristic)
+-  Architecture-Aware RAG via Azure AI Search
+-  AI Classification — type, priority & confidence score
+-  Structured Technical Action Plan (8–10 implementation steps, risks & notes)
+-  Transparent Thought Stream Visualization
+-  One-click publish back to GitHub
+-  Local deterministic fallback — 100% availability guaranteed
 
 
 # 🛠️ Tech Stack
 
 ### Frontend
-
-- Angular
-- TypeScript
+- Angular 19
+- TypeScript 5.x
 - SCSS
 
 ### Backend
-
-- FastAPI
-- Python
+- FastAPI 0.115
+- Python 3.11+
 - AsyncIO
 
-### AI Layer
-
+### AI / Cloud
 - Azure AI Foundry
-- Azure AI Search
-- Google Gemini
+- Azure AI Search (RAG — `recall-architecture-guidelines` index)
+- Google Gemini 2.5 Flash (Classifier + Planner)
 
 ### Integrations
-
-- GitHub API
+- GitHub REST API v3
 - GitHub OAuth
+- GitHub Comment API
+
 
 
 
@@ -161,32 +149,6 @@ npm install
 
 ng serve
 ```
-
-
-
-# 📂 Project Structure
-
-```text
-ission-agent/
-│
-├── frontend/
-│
-├── backend/
-│   ├── main.py
-│   ├── orchestrator.py
-│
-└── README.md
-```
-
-
-
-# 🔮 Future Work
-
-- Pull Request Generation
-- Repository-Wide Code Understanding
-- Multi-Agent Collaboration
-- Microsoft Agent Framework Integration
-
 
 
 ## Built for the Microsoft Agents League Hackathon
