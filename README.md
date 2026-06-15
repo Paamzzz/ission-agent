@@ -18,6 +18,12 @@ Powered by Azure AI Foundry, Azure AI Search (RAG), Google Gemini 2.5 Flash and 
 
 
 
+## 🎥 Demo
+[![Watch the demo](https://img.shields.io/badge/YouTube-Watch_Demo-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/79uwxX6osgY?si=ccyqhldIGmksESCW)
+
+
+
+
 # 🚨 The Problem
 
 Before a developer can fix an issue, someone must:
